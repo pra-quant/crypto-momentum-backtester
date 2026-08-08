@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Momentum Backtest — Results Terminal</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  :root {
+    --bg: #0D0F14;
+    --panel: #14171F;
+    --panel-border: #23272F;
+    --ink: #E4E6EB;
+    --dim: #7A8092;
+    --neg: #E86A6A;
+    --grid: #1D2028;
+    --lb7: #4FD1C5;
+    --lb14: #E8A33D;
+    --lb30: #9B8CE6;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 100vh;
+  }
+
+  header {
+    border-bottom: 1px solid var(--panel-border);
+    padding: 20px 32px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
+  h1 span { color: var(--lb7); }
+
+  #ticker { font-size: 12px; color: var(--dim); letter-spacing: 0.04em; }
+
+  main { padding: 28px 32px 60px; max-width: 1120px; margin: 0 auto; }
+
+  .upload-zone {
+    border: 1px dashed var(--panel-border);
+    border-radius: 4px;
+    padding: 28px;
+    text-align: center;
+    color: var(--dim);
+    font-size: 13px;
+    margin-bottom: 28px;
+    transition: border-color 0.15s;
+  }
+  .upload-zone.drag { border-color: var(--lb7); color: var(--ink); }
+  .upload-zone input { display: none; }
+  .upload-zone label { color: var(--lb7); cursor: pointer; border-bottom: 1px solid var(--lb7); padding-bottom: 1px; }
+
+  #empty-state { color: var(--dim); font-size: 13px; line-height: 1.6; }
+  #empty-state code { background: var(--panel); padding: 2px 6px; border-radius: 3px; color: var(--lb7); }
+
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin: 36px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--panel-border); }
+
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  table.compare th, table.compare td {
+    padding: 10px 14px;
+    text-align: right;
+    border-bottom: 1px solid var(--grid);
+  }
+  table.compare th:first-child, table.compare td:first-child { text-align: left; }
+  table.compare th { color: var(--dim); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; }
+  table.compare tr:last-child td { border-bottom: none; }
+  .lb-tag { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; }
+  .lb-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .value.negative { color: var(--neg); }
+  .value.positive { color: var(--lb7); }
+  .group-header td { padding-top: 16px; color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: none; }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+  .tab-btn {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 7px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .tab-btn.active { color: var(--ink); border-color: var(--lb7); background: rgba(79,209,197,0.08); }
+
+  .chart-panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 18px;
+  }
+  .chart-panel canvas { max-height: 280px; }
+
+  .legend-note { font-size: 11px; color: var(--dim); margin-top: 12px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .legend-note .swatch { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-note .swatch .lb-dot { width: 8px; height: 8px; }
+
+  .invest-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--dim);
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .invest-prefix { color: var(--ink); }
+  #invest-amount {
+    background: var(--bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    color: var(--ink);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 5px 8px;
+    width: 110px;
+  }
+  #invest-amount:focus { outline: none; border-color: var(--lb7); }
+
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MOMENTUM<span>::</span>TERMINAL</h1>
+  <div id="ticker">crypto-momentum-backtester v1.1 — lookback comparison</div>
+</header>
+
+<main>
+
+  <div class="upload-zone" id="drop">
+    <div><label for="file-input">Load results.json</label> or drag it here — generated by running <code>python src/main.py</code></div>
+    <input type="file" id="file-input" accept="application/json">
+  </div>
+
+  <div id="empty-state">
+    No results loaded yet. Run the backtest pipeline locally (it now tests
+    lookback = 7, 14, and 30 days automatically), then load the
+    <code>results.json</code> it produces to compare all three.
+  </div>
+
+  <div id="content" class="hidden">
+
+    <div class="section-label">Metrics — All Lookbacks Compared</div>
+    <table class="compare" id="compare-table"></table>
+
+    <div class="section-label">Equity Curve</div>
+    <div class="chart-panel">
+      <div class="tabs">
+        <button class="tab-btn active" data-segment="in_sample">In-Sample</button>
+        <button class="tab-btn" data-segment="out_of_sample">Out-of-Sample</button>
+      </div>
+      <div class="invest-row">
+        <label for="invest-amount">If I invested</label>
+        <span class="invest-prefix">$</span>
+        <input type="number" id="invest-amount" value="50000" min="0" step="1000">
+        <span>at the start of this period</span>
+      </div>
+      <canvas id="equityChart"></canvas>
+      <div class="legend-note" id="equity-legend"></div>
+    </div>
+
+    <div class="section-label">Drawdown</div>
+    <div class="chart-panel">
+      <div class="tabs">
+        <button class="tab-btn active" data-segment-dd="in_sample">In-Sample</button>
+        <button class="tab-btn" data-segment-dd="out_of_sample">Out-of-Sample</button>
+      </div>
+      <canvas id="drawdownChart"></canvas>
+      <div class="legend-note" id="drawdown-legend"></div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+const dropZone = document.getElementById('drop');
+const fileInput = document.getElementById('file-input');
+const LB_COLORS = { '7': '#4FD1C5', '14': '#E8A33D', '30': '#9B8CE6' };
+
+['dragover','dragleave','drop'].forEach(evt => {
+  dropZone.addEventListener(evt, e => {
+    e.preventDefault();
+    dropZone.classList.toggle('drag', evt === 'dragover');
+  });
+});
+dropZone.addEventListener('drop', e => {
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      render(data);
+    } catch (err) {
+      alert('Could not parse that file as JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function fmtPct(v) { return (v * 100).toFixed(2) + '%'; }
+function fmtDollar(v) { return '$' + Math.round(v).toLocaleString('en-US'); }
+function cls(v) { return v < 0 ? 'value negative' : 'value positive'; }
+function toSeries(obj) {
+  return { dates: Object.keys(obj), values: Object.values(obj) };
+}
+
+let lastData = null;
+let equitySegment = 'in_sample';
+let ddSegment = 'in_sample';
+let equityChart, drawdownChart;
+
+function renderCompareTable(data) {
+  const rows = [];
+  rows.push(`<tr><th>Lookback</th><th>Sharpe</th><th>CAGR</th><th>Max DD</th><th>Total Return</th></tr>`);
+
+  const segRow = (lb, segLabel, seg) => {
+    const m = data.runs[lb][seg].metrics;
+    return `<tr>
+      <td><span class="lb-tag"><span class="lb-dot" style="background:${LB_COLORS[lb]}"></span>${lb}d — ${segLabel}</span></td>
+      <td class="${cls(m.sharpe)}">${m.sharpe.toFixed(2)}</td>
+      <td class="${cls(m.cagr)}">${fmtPct(m.cagr)}</td>
+      <td class="${cls(m.max_drawdown)}">${fmtPct(m.max_drawdown)}</td>
+      <td class="${cls(m.total_return)}">${fmtPct(m.total_return)}</td>
+    </tr>`;
+  };
+
+  rows.push(`<tr class="group-header"><td colspan="5">In-Sample</td></tr>`);
+  data.lookbacks.forEach(lb => rows.push(segRow(String(lb), 'IS', 'in_sample')));
+  rows.push(`<tr class="group-header"><td colspan="5">Out-of-Sample</td></tr>`);
+  data.lookbacks.forEach(lb => rows.push(segRow(String(lb), 'OOS', 'out_of_sample')));
+
+  document.getElementById('compare-table').innerHTML = rows.join('');
+}
+
+function renderEquityChart(data) {
+  const investAmount = Number(document.getElementById('invest-amount').value) || 0;
+  const datasets = [];
+  let labels = [];
+
+  data.lookbacks.forEach(lb => {
+    const seg = data.runs[String(lb)][equitySegment];
+    const series = toSeries(seg.equity_curve);
+    if (series.dates.length > labels.length) labels = series.dates;
+    datasets.push({
+      label: `${lb}d`,
+      data: series.values.map(v => v * investAmount),
+      borderColor: LB_COLORS[String(lb)],
+      backgroundColor: 'transparent',
+      pointRadius: 0,
+      borderWidth: 1.5,
+    });
+  });
+
+  const gridColor = '#1D2028';
+  if (equityChart) equityChart.destroy();
+  equityChart = new Chart(document.getElementById('equityChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtDollar(ctx.parsed.y)}` } },
+      },
+      scales: {
+        x: { ticks: { color: '#7A8092', maxTicksLimit: 8, font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: gridColor } },
+        y: { ticks: { color: '#7A8092', font: { family: 'JetBrains Mono', size: 10 }, callback: v => fmtDollar(v) }, grid: { color: gridColor } },
+      },
+    },
+  });
+
+  document.getElementById('equity-legend').innerHTML = data.lookbacks.map(lb =>
+    `<span class="swatch"><span class="lb-dot" style="background:${LB_COLORS[String(lb)]}"></span>${lb}-day lookback</span>`
+  ).join('');
+}
+
+function renderDrawdownChart(data) {
+  const datasets = [];
+  let labels = [];
+
+  data.lookbacks.forEach(lb => {
+    const seg = data.runs[String(lb)][ddSegment];
+    const series = toSeries(seg.drawdown);
+    if (series.dates.length > labels.length) labels = series.dates;
+    datasets.push({
+      label: `${lb}d`,
+      data: series.values,
+      borderColor: LB_COLORS[String(lb)],
+      backgroundColor: 'transparent',
+      pointRadius: 0,
+      borderWidth: 1.5,
+    });
+  });
+
+  const gridColor = '#1D2028';
+  if (drawdownChart) drawdownChart.destroy();
+  drawdownChart = new Chart(document.getElementById('drawdownChart'), {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmtPct(ctx.parsed.y)}` } },
+      },
+      scales: {
+        x: { ticks: { color: '#7A8092', maxTicksLimit: 8, font: { family: 'JetBrains Mono', size: 10 } }, grid: { color: gridColor } },
+        y: { ticks: { color: '#7A8092', font: { family: 'JetBrains Mono', size: 10 }, callback: v => fmtPct(v) }, grid: { color: gridColor } },
+      },
+    },
+  });
+
+  document.getElementById('drawdown-legend').innerHTML = data.lookbacks.map(lb =>
+    `<span class="swatch"><span class="lb-dot" style="background:${LB_COLORS[String(lb)]}"></span>${lb}-day lookback</span>`
+  ).join('');
+}
+
+function render(data) {
+  lastData = data;
+  document.getElementById('empty-state').classList.add('hidden');
+  document.getElementById('content').classList.remove('hidden');
+  document.getElementById('ticker').innerHTML =
+    `Comparing lookbacks: <b>${data.lookbacks.join('d, ')}d</b>`;
+
+  renderCompareTable(data);
+  renderEquityChart(data);
+  renderDrawdownChart(data);
+}
+
+document.querySelectorAll('[data-segment]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-segment]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    equitySegment = btn.dataset.segment;
+    if (lastData) renderEquityChart(lastData);
+  });
+});
+
+document.querySelectorAll('[data-segment-dd]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-segment-dd]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    ddSegment = btn.dataset.segmentDd;
+    if (lastData) renderDrawdownChart(lastData);
+  });
+});
+
+document.getElementById('invest-amount').addEventListener('input', () => {
+  if (lastData) renderEquityChart(lastData);
+});
+</script>
+
+</body>
+</html>
